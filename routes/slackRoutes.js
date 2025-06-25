@@ -16,14 +16,8 @@ router.post('/upload', async (req, res) => {
 });
 
 router.post('/upload_policies', async (req, res) => {
-  const userId = req.body.user_id;
-
-  await slackClient.chat.postMessage({
-    channel: userId,
-    text: "📎 Please upload your compliance policy PDF in this thread."
-  });
-
-  res.status(200).send();
+  console.log("Received /upload_policies from Slack:", req.body);
+  res.status(200).send("Upload your compliance policy PDF in this thread.");
 });
 
 router.post('/file-process', async (req, res) => {
