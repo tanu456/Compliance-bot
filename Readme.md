@@ -1,1 +1,1 @@
-Slackforce Hackathon
+Salesforce Hackathon
