@@ -215,21 +215,21 @@ app.post('/slack/events', async (req, res) => {
       await delay(randDelay());
       
       // Mock validation report instead of LLM analysis
-      const mockValidationReport = `:clipboard: **Validation Report – Compliance Summary**
+      const mockValidationReport = `Validation Report – Compliance Summary
 
 | Rule / Check              | Status    | Remarks                                                                |
 |---------------------------|------------|-------------------------------------------------------------------------|
-| ₹5000 Limit Rule Found    | :white_check_mark: Found   | Clearly states receipts are required for expenses above ₹5000.        |
-| Approval Clause Detected  | :white_check_mark: Present | Requires manager approval and proper documentation for all claims.    |
-| Reimbursement Deadline    | :x: Missing | No mention of timeline for when approved reimbursements will be paid. |
-| Non-Reimbursable Items    | :x: Not Found| No list of excluded/non-reimbursable expenses (e.g., alcohol, fines). |
+| ₹5000 Limit Rule Found    | ✅   | Clearly states receipts are required for expenses above ₹5000.        |
+| Approval Clause Detected  | ✅ | Requires manager approval and proper documentation for all claims.    |
+| Reimbursement Deadline    |  ❌ | No mention of timeline for when approved reimbursements will be paid. |
+| Non-Reimbursable Items    |  ❌| No list of excluded/non-reimbursable expenses (e.g., alcohol, fines). |
 
 ---
-:white_check_mark: **Suggested Improvements**
-➤ Add a **Reimbursement Deadline** section:
-> "All approved expense claims will be reimbursed within 10 business days."
-➤ Add a **Non-Reimbursable Items** section:
-> "The following will not be reimbursed: Alcohol, personal entertainment, fines, gifts without business justification."`;
+Suggested Improvements
+• Add a Reimbursement Deadline section:
+  "All approved expense claims will be reimbursed within 10 business days."
+• Add a Non-Reimbursable Items section:
+  "The following will not be reimbursed: Alcohol, personal entertainment, fines, gifts without business justification."`;
 
       // Save extracted rules as JSON
       const rulesData = {
