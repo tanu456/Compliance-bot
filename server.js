@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const PDFDocument = require('pdfkit');
 const pdfParse = require('pdf-parse');
+const OpenAI = require('openai');
 
 const app = express();
 app.use(bodyParser.json());
@@ -12,7 +13,11 @@ app.use(express.static(path.join(__dirname, 'pdf/generated')));
 
 const PORT = process.env.PORT || 3000;
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const auditThreadMap = new Map();
+
+// Initialize OpenAI client
+const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
 
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -97,6 +102,31 @@ function detectFraudPatterns(records) {
   return flags;
 }
 
+async function analyzeWithLLM(pdfText) {
+  try {
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a legal compliance expert. Analyze the following policy document and extract clear, actionable compliance rules. Format your response as a structured list of rules with brief explanations.'
+        },
+        {
+          role: 'user',
+          content: `Please analyze this policy document and extract compliance rules:\n\n${pdfText.slice(0, 8000)}`
+        }
+      ],
+      temperature: 0.3,
+      max_tokens: 1000
+    });
+
+    return completion.choices[0].message.content;
+  } catch (error) {
+    console.error('❌ LLM Analysis Error:', error.message);
+    return '⚠️ Unable to analyze document with AI. Please check the document format.';
+  }
+}
+
 app.post('/slack/events', async (req, res) => {
   const body = req.body || {};
   const { type, challenge, event } = body;
@@ -126,7 +156,7 @@ app.post('/slack/events', async (req, res) => {
       });
 
       await delay(randDelay());
-      await sendSlackMsg(channel, '🤖 Validating with GPT-4o and internal rule engine...', thread_ts);
+      await sendSlackMsg(channel, '🤖 Analyzing with GPT-4 and extracting compliance rules...', thread_ts);
 
       let parsed;
       try {
@@ -138,18 +168,42 @@ app.post('/slack/events', async (req, res) => {
       }
 
       await delay(randDelay());
+      
+      // Use LLM to analyze and extract rules
+      const llmAnalysis = await analyzeWithLLM(parsed.text);
+      
+      // Save extracted rules as JSON
+      const rulesData = {
+        file_id: file.id,
+        user_id: event.user,
+        filename: file.name,
+        extracted_at: new Date().toISOString(),
+        rules: llmAnalysis,
+        original_text_length: parsed.text.length
+      };
+
+      const rulesFilename = `rules_${file.id}_${Date.now()}.json`;
+      const rulesPath = path.join(__dirname, 'extracted_rules', rulesFilename);
+      fs.mkdirSync(path.dirname(rulesPath), { recursive: true });
+      fs.writeFileSync(rulesPath, JSON.stringify(rulesData, null, 2));
+
+      await sendSlackMsg(channel, '📋 Generating compliance validation report...', thread_ts);
+      await delay(randDelay());
+
       const summary = `\`\`\`
-📋 COMPLIANCE VALIDATION REPORT
+📋 COMPLIANCE ANALYSIS REPORT
 
-✅ ₹5000 Limit rule found
-✅ Approval clause detected
-⚠️ Reimbursement date missing
-❌ No digital signature block
-⚠️ "Split claim" pattern detected
+🤖 AI-Generated Rules:
+${llmAnalysis}
 
-🔬 Model: GPT-4o | Temp: 0.3 | Tokens: 512
-Status: 3/5 checks passed
+📊 Document Stats:
+• Text Length: ${parsed.text.length} characters
+• Pages: ${parsed.numpages}
+• Rules File: ${rulesFilename}
+
+🔬 Model: GPT-4 | Temp: 0.3 | Analysis: Complete
 \`\`\``;
+      
       await sendSlackMsg(channel, summary, thread_ts);
     }
 
@@ -217,6 +271,74 @@ S3 Archive: s3://audit-reports/batch-20240625
       } else {
         await sendSlackMsg(channel, `\`\`\`\nFraud Insights:\n${fraudFlags.join('\n')}\n\`\`\``, thread_ts);
       }
+    }
+
+    // ✅ Analyze file and generate rules
+    else if (text.includes('analyze rules') && event.files?.length > 0) {
+      const file = event.files[0];
+      const url = file.url_private_download;
+
+      await sendSlackMsg(channel, '🧠 Starting AI-powered compliance rule extraction...', thread_ts);
+      await delay(randDelay());
+      await sendSlackMsg(channel, '📥 Downloading your document...', thread_ts);
+
+      const buffer = await axios.get(url, {
+        headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}` },
+        responseType: 'arraybuffer'
+      });
+
+      await delay(randDelay());
+      await sendSlackMsg(channel, '🤖 Analyzing document with GPT-4...', thread_ts);
+
+      let parsed;
+      try {
+        parsed = await pdfParse(buffer.data);
+      } catch (err) {
+        console.error('❌ PDF parsing failed:', err.message);
+        await sendSlackMsg(channel, '⚠️ Could not parse your document. Please upload a valid PDF file.', thread_ts);
+        return;
+      }
+
+      await delay(randDelay());
+      
+      // Use LLM to extract rules
+      const extractedRules = await analyzeWithLLM(parsed.text);
+      
+      // Save rules as JSON
+      const rulesData = {
+        file_id: file.id,
+        user_id: event.user,
+        filename: file.name,
+        extracted_at: new Date().toISOString(),
+        rules: extractedRules,
+        original_text_length: parsed.text.length,
+        analysis_type: 'compliance_rules_extraction'
+      };
+
+      const rulesFilename = `compliance_rules_${file.id}_${Date.now()}.json`;
+      const rulesPath = path.join(__dirname, 'extracted_rules', rulesFilename);
+      fs.mkdirSync(path.dirname(rulesPath), { recursive: true });
+      fs.writeFileSync(rulesPath, JSON.stringify(rulesData, null, 2));
+
+      await sendSlackMsg(channel, '📋 Generating comprehensive rules report...', thread_ts);
+      await delay(randDelay());
+
+      const rulesReport = `\`\`\`
+📋 COMPLIANCE RULES EXTRACTION
+
+🤖 AI-Generated Compliance Rules:
+${extractedRules}
+
+📊 Analysis Summary:
+• Document: ${file.name}
+• Pages: ${parsed.numpages}
+• Text Length: ${parsed.text.length} characters
+• Rules File: ${rulesFilename}
+
+🔬 AI Model: GPT-4 | Analysis: Complete
+\`\`\``;
+      
+      await sendSlackMsg(channel, rulesReport, thread_ts);
     }
 
     // ✅ Friendly thank-you reply
