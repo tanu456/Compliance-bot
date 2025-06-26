@@ -1,3 +1,4 @@
+require('dotenv').config();
 
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -146,7 +147,7 @@ app.post('/slack/events', async (req, res) => {
       }
       await delay(randDelay());
       await sendSlackMsg(channel, `\`\`\`
-`Validation Report – Compliance Summary
+Validation Report – Compliance Summary
 
 | Rule / Check              | Status    | Remarks                                                                |
 |---------------------------|------------|-------------------------------------------------------------------------|
@@ -160,7 +161,7 @@ Suggested Improvements
 • Add a Reimbursement Deadline section:
   "All approved expense claims will be reimbursed within 10 business days."
 • Add a Non-Reimbursable Items section:
-  "The following will not be reimbursed: Alcohol, personal entertainment, fines, gifts without business justification."`;
+  "The following will not be reimbursed: Alcohol, personal entertainment, fines, gifts without business justification."
 \`\`\``, thread_ts);
     }
 
@@ -241,7 +242,7 @@ dev.admin    | 6000   | Backdated Approval
 
     else if (text.includes('thanks compliance bot')) {
       await delay(randDelay());
-      await sendSlackMsg(channel, '🤖 You’re welcome! I’m always here for audits, templates, or policy checks.', thread_ts);
+      await sendSlackMsg(channel, '🤖 You\'re welcome! I\'m always here for audits, templates, or policy checks.', thread_ts);
     }
 
   } catch (e) {
