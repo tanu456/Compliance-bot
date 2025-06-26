@@ -253,7 +253,7 @@ INV-8140    | 6000   | Altered Receipts
 📅 ETA for review: 2 business days`, thread_ts);
     }
 
-    else if (text.includes('Thanks')) {
+    else if (text.includes('thanks') || text.includes('Thanks')) {
       await delay(randDelay());
       await sendSlackMsg(channel, '🤖 You\'re welcome! I\'m always here for audits, templates, or policy checks.', thread_ts);
     }
