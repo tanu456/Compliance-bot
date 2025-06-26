@@ -210,8 +210,8 @@ Invoices Reviewed: 10
 Invoice    	Violated Rule(s)	                           Status
 INV-9121	🚫 Receipt not attached                     ❌ Rejected
 INV-9140	🚫 No manager approval                      ❌ Rejected
-INV-9152	🚫 Bill date mismatch with travel dates	    ❌ Rejected
-INV-9165	🚫 BackDate Bill	                          ❌ Rejected
+INV-9152	🚫 Bill date mismatch with travel dates	  ❌ Rejected
+INV-9165	🚫 BackDate Bill	                        ❌ Rejected
 \`\`\``, thread_ts);
     }
 
@@ -243,15 +243,9 @@ INV-8140    | 6000   | Altered Receipts
       INV-8140    | 6000   | Altered Receipts
       \`\`\``;
       await sendSlackMsg(channel, table, thread_ts);
-      // const frauds = detectFraudPatterns(records);
-      // if (!frauds.length) {
-      //   await sendSlackMsg(channel, '✅ No fraudulent behavior detected.', thread_ts);
-      // } else {
-      //   await sendSlackMsg(channel, '```\\n🔎 FRAUD REPORT:\\n' + frauds.join('\\n') + '\\n```', thread_ts);
-      // }
     }
 
-    else if (text.includes('create a case for all above')) {
+    else if (text.includes('case')) {
       await sendSlackMsg(channel, '📂 Creating Salesforce case(s) for flagged anomalies...', thread_ts);
       await delay(randDelay());
       await sendSlackMsg(channel, `✅ Created Case #CSF-98721
