@@ -1,5 +1,16 @@
 Finance Compliance Template
-----------------------------
-1. All expenses above ₹5,000 require a receipt.
-2. Monthly reconciliation is mandatory.
-3. Vendor approval required before PO issuance.
+
+
+== Eligibility ==
+
+
+
+
+
+== Submission Rules ==
+
+
+
+
+
+== Approval Conditions ==
