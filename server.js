@@ -198,10 +198,20 @@ Suggested Improvements
 
       await sendSlackMsg(channel, `\`\`\`
 📊 AUDIT LOGS:
-Invoices Reviewed: 100
-✅ Compliant: 60
-❌ Non-Compliant: 30
-🕓 Unprocessed: 10
+Invoices Reviewed: 10
+✅ Compliant: 6
+❌ Non-Compliant: 4
+\`\`\``, thread_ts);
+
+      await delay(randDelay());
+      await sendSlackMsg(channel, `\`\`\`
+📋 DETAILED INVOICE SUMMARY:
+
+Invoice	Violated Rule(s)	Status
+INV-9121	🚫 Receipt not attached ❌ Rejected
+INV-9140	🚫 No manager approval ❌ Rejected
+INV-9152	🚫 Bill date mismatch with travel dates	❌ Rejected
+INV-9165	🚫 Non-business expense marked as business	❌ Rejected
 \`\`\``, thread_ts);
     }
 
