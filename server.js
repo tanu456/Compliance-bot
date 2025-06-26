@@ -1,5 +1,3 @@
-// server.js — ComplianceBot with PDF parse + req.body safety fixes
-
 const express = require('express');
 const bodyParser = require('body-parser');
 const axios = require('axios');
@@ -14,6 +12,7 @@ app.use(express.static(path.join(__dirname, 'pdf/generated')));
 
 const PORT = process.env.PORT || 3000;
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
+const auditThreadMap = new Map();
 
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -82,6 +81,22 @@ function getTemplate(sector) {
   }
 }
 
+function detectFraudPatterns(records) {
+  const flags = [];
+  for (let r of records) {
+    if (r.amount < 5000 && r.split && r.sameDay) {
+      flags.push(`🚨 Split claim detected: ₹${r.amount} x2 by @${r.user}`);
+    }
+    if (r.noReceipt && r.amount > 3000) {
+      flags.push(`⚠️ High-value claim without receipt: ₹${r.amount} by @${r.user}`);
+    }
+    if (r.backdatedApproval) {
+      flags.push(`⚠️ Backdated approval by @${r.approver} for @${r.user}`);
+    }
+  }
+  return flags;
+}
+
 app.post('/slack/events', async (req, res) => {
   const body = req.body || {};
   const { type, challenge, event } = body;
@@ -93,9 +108,10 @@ app.post('/slack/events', async (req, res) => {
 
   const text = event.text.toLowerCase();
   const channel = event.channel;
-  const thread_ts = event.ts;
+  const thread_ts = event.thread_ts || event.ts;
 
   try {
+    // ✅ Validate uploaded PDF
     if (text.includes('validate') && event.files?.length > 0) {
       const file = event.files[0];
       const url = file.url_private_download;
@@ -137,6 +153,7 @@ Status: 3/5 checks passed
       await sendSlackMsg(channel, summary, thread_ts);
     }
 
+    // ✅ Generate sector template
     else if (text.includes('generate template') || text.includes('template for')) {
       const sector = text.includes('health') ? 'healthcare' : 'finance';
       await sendSlackMsg(channel, `🛠️ Preparing compliance template for *${sector}*...`, thread_ts);
@@ -150,19 +167,7 @@ Status: 3/5 checks passed
       await sendPDFButton(channel, filename, sector, thread_ts);
     }
 
-    else if (text.includes('rules:')) {
-      const rules = text.split('rules:')[1].split(';').map(r => '• ' + r.trim()).join('\n');
-      await sendSlackMsg(channel, '🧠 Parsing your custom rules...', thread_ts);
-      await delay(randDelay());
-      await sendSlackMsg(channel, '🔍 Checking structure & formatting...', thread_ts);
-      await delay(randDelay());
-      await sendSlackMsg(channel, '📄 Generating your PDF...', thread_ts);
-      const filePath = generatePDF(rules, 'custom');
-      const filename = path.basename(filePath);
-      await delay(randDelay());
-      await sendPDFButton(channel, filename, 'custom', thread_ts);
-    }
-
+    // ✅ Audit
     else if (text.includes('audit')) {
       await sendSlackMsg(channel, '📊 Starting compliance audit...', thread_ts);
       await delay(randDelay());
@@ -171,21 +176,58 @@ Status: 3/5 checks passed
       await sendSlackMsg(channel, '🧠 Running GPT-4o + rules engine...', thread_ts);
       await delay(randDelay());
 
+      const records = [
+        { user: 'john.doe', amount: 4900, split: true, sameDay: true },
+        { user: 'alice.k', amount: 5200, noReceipt: true },
+        { user: 'sam.p', amount: 4800, noReceipt: true },
+        { user: 'john.doe', amount: 4950, split: true, sameDay: true },
+        { user: 'dev.admin', amount: 6000, backdatedApproval: true, approver: 'unauthorized.user' }
+      ];
+
+      auditThreadMap.set(thread_ts, records);
+
       const audit = `\`\`\`
 📊 AUDIT SUMMARY: 100 Invoices
 
 ✅ Passed: 60
-❌ Failed: 30 (missing receipts, approvals)
+❌ Failed: 30
 🕓 Unprocessed: 10
 
 GPT-4o | Temp: 0.2 | Rules: active
 S3 Archive: s3://audit-reports/batch-20240625
 \`\`\``;
+
       await sendSlackMsg(channel, audit, thread_ts);
     }
+
+    // ✅ Run fraud detection manually
+    else if (text.includes('run fraud detection')) {
+      const records = auditThreadMap.get(thread_ts);
+      if (!records) {
+        await sendSlackMsg(channel, '⚠️ No audit data found in this thread. Please run an audit first.', thread_ts);
+        return;
+      }
+
+      await sendSlackMsg(channel, '🔍 Running fraud detection on failed and unprocessed files...', thread_ts);
+      await delay(randDelay());
+
+      const fraudFlags = detectFraudPatterns(records);
+      if (fraudFlags.length === 0) {
+        await sendSlackMsg(channel, '✅ No suspicious patterns detected in audit logs.', thread_ts);
+      } else {
+        await sendSlackMsg(channel, `\`\`\`\nFraud Insights:\n${fraudFlags.join('\n')}\n\`\`\``, thread_ts);
+      }
+    }
+
+    // ✅ Friendly thank-you reply
+    else if (text.includes('thanks compliance bot')) {
+      await delay(randDelay());
+      await sendSlackMsg(channel, '🤖 Always here to help! Let me know if you need another help.', thread_ts);
+    }
+
   } catch (e) {
     console.error('❌ Slack Event Error:', e.message);
   }
 });
 
-app.listen(PORT, () => console.log(`🚀 ComplianceBot running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 ComplianceBot (full version) running on port ${PORT}`));
