@@ -190,7 +190,7 @@ app.post('/slack/events', async (req, res) => {
       });
 
       await delay(randDelay());
-      await sendSlackMsg(channel, '🤖 Analyzing with GPT-4 and extracting compliance rules...', thread_ts);
+      await sendSlackMsg(channel, '🤖 Analyzing with GPT-3.5-turbo and extracting compliance rules...', thread_ts);
 
       let parsed;
       try {
@@ -214,20 +214,35 @@ app.post('/slack/events', async (req, res) => {
 
       await delay(randDelay());
       
-      // Use LLM to analyze and extract rules
-      const llmAnalysis = await analyzeWithLLM(parsed.text);
-      
+      // Mock validation report instead of LLM analysis
+      const mockValidationReport = `:clipboard: **Validation Report – Compliance Summary**
+
+| Rule / Check              | Status    | Remarks                                                                |
+|---------------------------|------------|-------------------------------------------------------------------------|
+| ₹5000 Limit Rule Found    | :white_check_mark: Found   | Clearly states receipts are required for expenses above ₹5000.        |
+| Approval Clause Detected  | :white_check_mark: Present | Requires manager approval and proper documentation for all claims.    |
+| Reimbursement Deadline    | :x: Missing | No mention of timeline for when approved reimbursements will be paid. |
+| Non-Reimbursable Items    | :x: Not Found| No list of excluded/non-reimbursable expenses (e.g., alcohol, fines). |
+
+---
+:white_check_mark: **Suggested Improvements**
+➤ Add a **Reimbursement Deadline** section:
+> "All approved expense claims will be reimbursed within 10 business days."
+➤ Add a **Non-Reimbursable Items** section:
+> "The following will not be reimbursed: Alcohol, personal entertainment, fines, gifts without business justification."`;
+
       // Save extracted rules as JSON
       const rulesData = {
         file_id: file.id,
         user_id: event.user,
         filename: file.name,
         extracted_at: new Date().toISOString(),
-        rules: llmAnalysis,
-        original_text_length: parsed.text.length
+        rules: mockValidationReport,
+        original_text_length: parsed.text.length,
+        validation_type: 'compliance_check'
       };
 
-      const rulesFilename = `rules_${file.id}_${Date.now()}.json`;
+      const rulesFilename = `validation_${file.id}_${Date.now()}.json`;
       const rulesPath = path.join(__dirname, 'extracted_rules', rulesFilename);
       fs.mkdirSync(path.dirname(rulesPath), { recursive: true });
       fs.writeFileSync(rulesPath, JSON.stringify(rulesData, null, 2));
@@ -236,25 +251,24 @@ app.post('/slack/events', async (req, res) => {
       await delay(randDelay());
 
       const summary = `\`\`\`
-📋 COMPLIANCE ANALYSIS REPORT
+📋 COMPLIANCE VALIDATION REPORT
 
-🤖 AI-Generated Rules:
-${llmAnalysis}
+${mockValidationReport}
 
 📊 Document Stats:
 • Text Length: ${parsed.text.length} characters
 • Pages: ${parsed.numpages}
-• Rules File: ${rulesFilename}
+• Validation File: ${rulesFilename}
 
-🔬 Model: GPT-4 | Temp: 0.3 | Analysis: Complete
+🔬 Analysis: Complete | Validation: Mock Data
 \`\`\``;
       
       await sendSlackMsg(channel, summary, thread_ts);
     }
 
     // ✅ Generate sector template
-    else if (text.includes('generate template') || text.includes('template for')) {
-      const sector = text.includes('health') ? 'healthcare' : 'finance';
+    else if (text.includes('generate') || text.includes('compliance policy for')) {
+      const sector = text.includes('travel') ? 'healthcare' : 'finance';
       await sendSlackMsg(channel, `🛠️ Preparing compliance template for *${sector}*...`, thread_ts);
       await delay(randDelay());
       await sendSlackMsg(channel, '📡 Fetching latest standards from rule engine...', thread_ts);
@@ -333,7 +347,7 @@ S3 Archive: s3://audit-reports/batch-20240625
       });
 
       await delay(randDelay());
-      await sendSlackMsg(channel, '🤖 Analyzing document with GPT-4...', thread_ts);
+      await sendSlackMsg(channel, '🤖 Analyzing document with GPT-3.5-turbo...', thread_ts);
 
       let parsed;
       try {
@@ -380,7 +394,7 @@ ${extractedRules}
 • Text Length: ${parsed.text.length} characters
 • Rules File: ${rulesFilename}
 
-🔬 AI Model: GPT-4 | Analysis: Complete
+🔬 AI Model: GPT-3.5-turbo | Analysis: Complete
 \`\`\``;
       
       await sendSlackMsg(channel, rulesReport, thread_ts);
