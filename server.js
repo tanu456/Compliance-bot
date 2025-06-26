@@ -105,6 +105,18 @@ function detectFraudPatterns(records) {
 
 async function analyzeWithLLM(pdfText) {
   try {
+    console.log('🔍 Starting LLM analysis...');
+    console.log('📄 PDF text length:', pdfText.length);
+    console.log('🔑 OpenAI API Key exists:', !!process.env.OPENAI_API_KEY);
+    
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY environment variable is not set');
+    }
+
+    if (!pdfText || pdfText.trim().length === 0) {
+      throw new Error('PDF text is empty or contains no readable content');
+    }
+
     const completion = await openai.chat.completions.create({
       model: 'gpt-4',
       messages: [
@@ -121,10 +133,31 @@ async function analyzeWithLLM(pdfText) {
       max_tokens: 1000
     });
 
+    console.log('✅ LLM analysis completed successfully');
     return completion.choices[0].message.content;
   } catch (error) {
-    console.error('❌ LLM Analysis Error:', error.message);
-    return '⚠️ Unable to analyze document with AI. Please check the document format.';
+    console.error('❌ LLM Analysis Error Details:');
+    console.error('Error type:', error.constructor.name);
+    console.error('Error message:', error.message);
+    console.error('Error code:', error.code);
+    console.error('Error status:', error.status);
+    
+    if (error.response) {
+      console.error('API Response:', error.response.data);
+    }
+    
+    // Return more specific error messages based on the error type
+    if (error.message.includes('OPENAI_API_KEY')) {
+      return '⚠️ OpenAI API key is not configured. Please check your environment variables.';
+    } else if (error.message.includes('empty')) {
+      return '⚠️ The PDF appears to be empty or contains no readable text. Please check the document.';
+    } else if (error.code === 'insufficient_quota') {
+      return '⚠️ OpenAI API quota exceeded. Please check your account usage.';
+    } else if (error.code === 'invalid_api_key') {
+      return '⚠️ Invalid OpenAI API key. Please check your configuration.';
+    } else {
+      return `⚠️ AI analysis failed: ${error.message}`;
+    }
   }
 }
 
@@ -162,6 +195,17 @@ app.post('/slack/events', async (req, res) => {
       let parsed;
       try {
         parsed = await pdfParse(buffer.data);
+        console.log('📄 PDF parsed successfully');
+        console.log('📊 PDF stats:', {
+          pages: parsed.numpages,
+          textLength: parsed.text.length,
+          hasText: !!parsed.text.trim()
+        });
+        
+        if (!parsed.text || parsed.text.trim().length === 0) {
+          await sendSlackMsg(channel, '⚠️ The PDF appears to be empty or contains no readable text. Please check if the document has text content.', thread_ts);
+          return;
+        }
       } catch (err) {
         console.error('❌ PDF parsing failed:', err.message);
         await sendSlackMsg(channel, '⚠️ Could not parse your PDF. Please upload a valid, non-encrypted file.', thread_ts);
