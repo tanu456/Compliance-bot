@@ -248,13 +248,13 @@ INV-8140    | 6000   | Altered Receipts
     else if (text.includes('case')) {
       await sendSlackMsg(channel, '📂 Creating Salesforce case(s) for flagged anomalies...', thread_ts);
       await delay(randDelay());
-      await sendSlackMsg(channel, `✅ Created Case #CSF-98721
+      await sendSlackMsg(channel, `✅ Created Case #00001003
 🔗 Assigned to: Risk & Compliance Team
 📅 ETA for review: 2 business days`, thread_ts);
     }
 
-    else if (text.includes('thanks')) {
-      await delay(randDelay());
+    else if (text.includes('thanks') || text.includes('Thanks')) {
+      console.log("thanks");
       await sendSlackMsg(channel, '🤖 You\'re welcome! I\'m always here for audits, templates, or policy checks.', thread_ts);
     }
 
